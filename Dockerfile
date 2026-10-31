@@ -27,7 +27,11 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 WORKDIR /var/www/html
 COPY --from=vendor /app /var/www/html
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
-EXPOSE 8080
+# HF Spaces default port
+ENV PORT=7860
+EXPOSE 7860
+
 ENTRYPOINT ["entrypoint.sh"]
