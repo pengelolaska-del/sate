@@ -50,6 +50,7 @@ function buildActions(sql: any): Record<string, ActionEntry> {
 
     uploadRUP:          [p => uploadSvc.uploadRup(p),            true],
     uploadRealisasi:    [p => uploadSvc.uploadRealisasi(p),      true],
+    importPaguLpse:     [p => uploadSvc.importPaguLpse(p),       true],
     runMatching:        [p => matchingSvc.handleRun(p),          true],
 
     listRUP:            [p => listingSvc.listRup(p),             false],

@@ -159,4 +159,123 @@ export class UploadService {
       vals
     );
   }
+
+  // ─── Import Pagu dari CSV LPSE (Tender/Non-Tender) ─────────
+  async importPaguLpse(p: Record<string, any>) {
+    const data = p.data;
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new ApiException("Data wajib ada.");
+    }
+    const overwrite = !!p.overwrite;
+    const allPeriode = !!p.all_periode;
+    const periode = p.periode ?? null;
+    const chunk = Number(p.chunk_index ?? 0);
+    const total = Number(p.total_chunks ?? 1);
+    const isLast = chunk === total - 1;
+
+    // Determine CSV type (tender or non-tender)
+    const rows = data.map((r: any) => N.normalizeHeaders(r));
+    const isTender = "kd_tender" in (rows[0] ?? {});
+    const isNonTender = "kd_nontender" in (rows[0] ?? {});
+    const kodeField = isTender ? "kd_tender" : isNonTender ? "kd_nontender" : null;
+    if (!kodeField) throw new ApiException("Kolom kd_tender atau kd_nontender wajib ada.");
+
+    // Build CSV lookup: kode_paket -> pagu
+    const csvPagu: Record<string, number> = {};
+    const csvKodeRup: Record<string, string> = {};
+    for (const row of rows) {
+      const kode = String(row[kodeField] ?? "").trim();
+      if (!kode) continue;
+      csvPagu[kode] = Number(row.pagu ?? row.hps ?? 0);
+      const kru = String(row.kd_rup ?? "").trim();
+      if (kru) csvKodeRup[kode] = kru;
+    }
+
+    // Get periodes to process
+    let periodes: string[];
+    if (allPeriode) {
+      const pRows = await this.sql`SELECT DISTINCT periode FROM realisasi_records ORDER BY periode`;
+      periodes = pRows.map((r: any) => r.periode);
+    } else if (periode) {
+      periodes = [periode];
+    } else {
+      throw new ApiException("Periode wajib jika all_periode=false.");
+    }
+
+    let totalFilled = 0, totalSkippedExists = 0, totalSkippedNoMatch = 0, totalUnmatched = 0;
+    let totalKodeRupFilled = 0;
+    const perPeriode: { periode: string; filled: number }[] = [];
+
+    for (const pr of periodes) {
+      // Find UNMATCHED realisasi for this periode
+      const unmatchedRows = await this.sql`
+        SELECT r.kode_paket, r.kode_rup
+        FROM realisasi_records r
+        LEFT JOIN matching_results m ON m.periode = r.periode AND m.kode_paket = r.kode_paket AND m.status_matching = 'MATCHED'
+        WHERE r.periode = ${pr} AND m.matching_id IS NULL
+          AND COALESCE(TRIM(r.kode_paket), '') <> ''`;
+
+      let filled = 0, skippedExists = 0, skippedNoMatch = 0;
+
+      for (const um of unmatchedRows) {
+        const kp = String(um.kode_paket).trim();
+        if (!(kp in csvPagu)) {
+          skippedNoMatch++;
+          continue;
+        }
+
+        // Check if manual_pagu already exists
+        const existing = await this.sql`SELECT 1 FROM manual_pagu WHERE kode_paket = ${kp}`;
+        if (existing.length > 0) {
+          if (overwrite) {
+            await this.sql`UPDATE manual_pagu SET pagu = ${csvPagu[kp]} WHERE kode_paket = ${kp}`;
+            filled++;
+          } else {
+            skippedExists++;
+          }
+        } else {
+          await this.sql.unsafe(
+            `INSERT INTO manual_pagu ("kode_paket", "pagu") VALUES ($1, $2)`,
+            [kp, csvPagu[kp]]
+          );
+          filled++;
+        }
+
+        // Fill kode_rup if available and empty
+        if (csvKodeRup[kp]) {
+          const kruCurrent = String(um.kode_rup ?? "").trim();
+          if (!kruCurrent) {
+            await this.sql`UPDATE realisasi_records SET kode_rup = ${csvKodeRup[kp]} WHERE periode = ${pr} AND kode_paket = ${kp} AND (kode_rup IS NULL OR TRIM(kode_rup) = '')`;
+            totalKodeRupFilled++;
+          }
+        }
+      }
+
+      totalFilled += filled;
+      totalSkippedExists += skippedExists;
+      totalSkippedNoMatch += skippedNoMatch;
+      totalUnmatched += unmatchedRows.length;
+      perPeriode.push({ periode: pr, filled });
+    }
+
+    // If kode_rup was filled and this is the last chunk, re-run matching
+    if (isLast && totalKodeRupFilled > 0) {
+      try {
+        for (const pr of periodes) {
+          await this.sql`SELECT * FROM run_matching(${pr})`;
+        }
+      } catch (e) {
+        console.error("Re-matching after pagu import failed:", e);
+      }
+    }
+
+    return Api.ok({
+      filled: totalFilled,
+      skipped_exists: totalSkippedExists,
+      skipped_no_match: totalSkippedNoMatch,
+      total_unmatched: totalUnmatched,
+      kode_rup_filled: totalKodeRupFilled > 0 ? totalKodeRupFilled : undefined,
+      per_periode: perPeriode.length > 1 ? perPeriode : undefined,
+    }, `Pagu LPSE terisi: ${totalFilled} paket.`);
+  }
 }
