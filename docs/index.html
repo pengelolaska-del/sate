@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8"/>
@@ -4600,10 +4600,25 @@ async function uploadReal() {
     const rows=parseCSV(await realFile.text());
     const r=await uploadChunked('uploadRealisasi',rows,periode,realFile.name,'prog-real-fill','prog-real-pct','prog-real-lbl','prog-real-wrap');
     const d=r.lastRes?.data||{};
-    Swal.fire('✅ Upload Realisasi Berhasil',
-      `<b>${r.total.toLocaleString('id-ID')}</b> record diproses.<br>` +
-      `Matched: <b>${d.matched??'—'}</b> | Unmatched: <b>${d.unmatched??'—'}</b> | Orphan: <b>${d.orphan??'—'}</b>`,
-      'success');
+    // Upload selesai, jalankan matching terpisah agar tidak timeout
+    if(d.need_matching) {
+      document.getElementById('prog-real-lbl').textContent='Menjalankan Matching...';
+      try {
+        const mRes = await api({action:'runMatching', token:S.adminToken, periode});
+        const md = mRes.data||{};
+        Swal.fire('✅ Upload & Matching Berhasil',
+          '<b>'+r.total.toLocaleString('id-ID')+'</b> record diproses.<br>' +
+          'Matched: <b>'+(md.matched||'—')+'</b> | Unmatched: <b>'+(md.unmatched||'—')+'</b> | Orphan: <b>'+(md.orphan||'—')+'</b>',
+          'success');
+      } catch(me) {
+        Swal.fire('⚠️ Upload Berhasil, Matching Gagal',
+          '<b>'+r.total.toLocaleString('id-ID')+'</b> record berhasil diupload.<br>' +
+          'Matching error: '+me.message+'<br>Gunakan tombol <b>Jalankan Ulang Matching</b> di halaman Sandingan.',
+          'warning');
+      }
+    } else {
+      Swal.fire('✅ Chunk OK', r.total.toLocaleString('id-ID')+' record diproses.', 'success');
+    }
     realFile=null; document.getElementById('lbl-real').textContent='Klik atau drag file CSV di sini';
     document.getElementById('prog-real-wrap').classList.add('hidden'); btn.disabled=true;
     await init();

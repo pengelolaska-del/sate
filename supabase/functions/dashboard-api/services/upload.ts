@@ -89,27 +89,13 @@ export class UploadService {
       await this.writeLog(uploadId, periode, bulan, tahun, "REALISASI", p, records.length);
     }
 
-    let result: Record<string, any> | null = null;
-    let matchingNote = "";
-    if (isLast) {
-      try {
-        result = await this.matching.run(periode);
-        await this.matching.buildAggregate(periode, bulan, tahun);
-        matchingNote = "Matching selesai.";
-      } catch (matchErr) {
-        console.error("Matching error (upload tetap berhasil):", matchErr);
-        matchingNote = "Upload berhasil, tapi matching gagal. Silakan jalankan matching manual.";
-      }
-    }
-
+    // Matching is now triggered separately via "runMatching" action
+    // to avoid Edge Function timeout on large datasets
     return Api.ok({
       jumlah_record: records.length,
       is_last: isLast,
-      matched: result?.matched ?? null,
-      unmatched: result?.unmatched ?? null,
-      orphan: result?.orphan ?? null,
-      matching_note: matchingNote || undefined,
-    }, isLast ? (matchingNote || "Upload Realisasi & matching selesai.") : "Chunk OK.");
+      need_matching: isLast,
+    }, isLast ? "Upload Realisasi selesai. Silakan jalankan Matching." : "Chunk OK.");
   }
 
   private prepare(p: Record<string, any>): [string, number, number, string, boolean, boolean, Record<string, any>[]] {
