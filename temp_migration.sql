@@ -8,6 +8,7 @@ DECLARE
 BEGIN
   DELETE FROM matching_results WHERE periode = p_periode;
 
+  -- Exact match by kode_rup
   INSERT INTO matching_results (
     matching_id, periode, kode_satker, nama_satker, kode_rup, kode_paket,
     nama_paket_rup, nama_paket_realisasi, metode_matching, similarity_score,
@@ -20,7 +21,7 @@ BEGIN
     'EXACT_ID', NULL,
     p.pagu, r.nilai_kontrak,
     p.pagu - r.nilai_kontrak,
-    CASE WHEN p.pagu > 0 THEN ROUND((p.pagu - r.nilai_kontrak)::NUMERIC / p.pagu * 100, 2) ELSE 0 END,
+    CASE WHEN p.pagu > 0 THEN ROUND(((p.pagu - r.nilai_kontrak) * 100.0 / p.pagu)::NUMERIC, 2) ELSE 0 END,
     'MATCHED', v_now
   FROM realisasi_records r
   JOIN rup_records p ON p.periode = r.periode AND TRIM(p.kode_rup) = TRIM(r.kode_rup)
@@ -28,6 +29,7 @@ BEGIN
     AND r.kode_rup IS NOT NULL AND TRIM(r.kode_rup) <> '';
   GET DIAGNOSTICS v_matched = ROW_COUNT;
 
+  -- Unmatched realisasi
   INSERT INTO matching_results (
     matching_id, periode, kode_satker, nama_satker, kode_rup, kode_paket,
     nama_paket_rup, nama_paket_realisasi, metode_matching, similarity_score,
@@ -47,6 +49,7 @@ BEGIN
     );
   GET DIAGNOSTICS v_unmatched = ROW_COUNT;
 
+  -- Orphan RUP
   INSERT INTO matching_results (
     matching_id, periode, kode_satker, nama_satker, kode_rup, kode_paket,
     nama_paket_rup, nama_paket_realisasi, metode_matching, similarity_score,

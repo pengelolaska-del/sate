@@ -1,12 +1,15 @@
-$body = '{"action":"runMatching","token":"Q1w2e3r4!","periode":"2026-10"}'
-Write-Host "Testing runMatching..."
+$body = '{"action":"listSandingan","periode":"2026-10","page":1,"per_page":5}'
+Write-Host "Testing listSandingan..."
 Write-Host "Start: $(Get-Date -Format 'HH:mm:ss')"
 try {
-    $response = Invoke-WebRequest -Uri 'https://fcshmbmregsyyffbarsh.supabase.co/functions/v1/dashboard-api' -Method POST -ContentType 'text/plain' -Body $body -TimeoutSec 180 -UseBasicParsing
+    $response = Invoke-WebRequest -Uri 'https://fcshmbmregsyyffbarsh.supabase.co/functions/v1/dashboard-api' -Method POST -ContentType 'text/plain' -Body $body -TimeoutSec 120 -UseBasicParsing
     Write-Host "End: $(Get-Date -Format 'HH:mm:ss')"
     Write-Host "Status: $($response.StatusCode)"
     $json = $response.Content | ConvertFrom-Json
-    $json | ConvertTo-Json -Depth 3
+    Write-Host "Total items: $($json.data.total)"
+    Write-Host "Summary matched: $($json.data.summary.selesai + $json.data.summary.sedang_berjalan)"
+    Write-Host "Summary belum: $($json.data.summary.belum_berproses)"
+    $json.data.summary | ConvertTo-Json
 } catch {
     Write-Host "End: $(Get-Date -Format 'HH:mm:ss')"
     Write-Host "HTTP Error: $($_.Exception.Response.StatusCode.value__)"
