@@ -72,7 +72,9 @@ export class SandinganService {
 
     const rup: Record<string, any> = {};
     for (const pr of periodes) {
-      const rows = await this.sql`SELECT * FROM rup_records WHERE periode = ${pr} ORDER BY id`;
+      const rows = await this.sql`SELECT id, kode_rup, kode_satker, nama_satker, nama_paket,
+        metode_pengadaan, jenis_pengadaan, cara_pengadaan, sumber_dana, pagu
+        FROM rup_records WHERE periode = ${pr} ORDER BY id`;
       for (const o of rows) {
         const r = castRow({ ...o });
         const kr = String(r.kode_rup ?? "").trim();
@@ -82,10 +84,10 @@ export class SandinganService {
 
     const manualPaguRows = await this.sql`SELECT kode_paket FROM manual_pagu`;
     const manualPaguSet = new Set(manualPaguRows.map((r: any) => String(r.kode_paket).trim()));
-    const overrideRows = await this.sql`SELECT * FROM status_overrides`;
+    const overrideRows = await this.sql`SELECT kode_rup, override_type, keterangan, kode_paket_manual, nama_paket_manual, nama_penyedia_manual, nilai_kontrak_manual, status_manual FROM status_overrides`;
     const overrides: Record<string, any> = {};
     for (const o of overrideRows) overrides[o.kode_rup] = { ...o };
-    const splitRows = await this.sql`SELECT * FROM kontrak_splits`;
+    const splitRows = await this.sql`SELECT kode_paket, pagu, sumber_pagu FROM kontrak_splits`;
     const splits: Record<string, any> = {};
     for (const o of splitRows) splits[o.kode_paket] = { ...o };
 

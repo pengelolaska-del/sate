@@ -73,10 +73,14 @@ export class EfisiensiRowsService {
     const matchedRaw: any[] = [];
 
     for (const pr of periodes) {
-      const matching = await this.sql`SELECT * FROM matching_results WHERE periode = ${pr} ORDER BY id`;
+      const matching = await this.sql`SELECT id, kode_rup, kode_paket, kode_satker, nama_satker,
+        nama_paket_rup, nama_paket_realisasi, pagu_rup, nilai_kontrak, status_matching
+        FROM matching_results WHERE periode = ${pr} ORDER BY id`;
       if (matching.length === 0) continue;
 
-      const realRows = await this.sql`SELECT * FROM realisasi_records WHERE periode = ${pr} ORDER BY id`;
+      const realRows = await this.sql`SELECT id, kode_paket, kode_satker, nama_satker, nama_paket,
+        nama_penyedia, metode_pengadaan, jenis_pengadaan, sumber_transaksi, status_paket, status_paket_asli, nilai_kontrak
+        FROM realisasi_records WHERE periode = ${pr} ORDER BY id`;
       const realMap: Record<string, any> = {};
       for (const o of realRows) {
         const r = { ...o };
