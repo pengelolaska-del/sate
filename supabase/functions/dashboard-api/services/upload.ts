@@ -90,9 +90,16 @@ export class UploadService {
     }
 
     let result: Record<string, any> | null = null;
+    let matchingNote = "";
     if (isLast) {
-      result = await this.matching.run(periode);
-      await this.matching.buildAggregate(periode, bulan, tahun);
+      try {
+        result = await this.matching.run(periode);
+        await this.matching.buildAggregate(periode, bulan, tahun);
+        matchingNote = "Matching selesai.";
+      } catch (matchErr) {
+        console.error("Matching error (upload tetap berhasil):", matchErr);
+        matchingNote = "Upload berhasil, tapi matching gagal. Silakan jalankan matching manual.";
+      }
     }
 
     return Api.ok({
@@ -101,7 +108,8 @@ export class UploadService {
       matched: result?.matched ?? null,
       unmatched: result?.unmatched ?? null,
       orphan: result?.orphan ?? null,
-    }, isLast ? "Upload Realisasi & matching selesai." : "Chunk OK.");
+      matching_note: matchingNote || undefined,
+    }, isLast ? (matchingNote || "Upload Realisasi & matching selesai.") : "Chunk OK.");
   }
 
   private prepare(p: Record<string, any>): [string, number, number, string, boolean, boolean, Record<string, any>[]] {
@@ -135,8 +143,8 @@ export class UploadService {
   private async insertChunks(table: string, records: Record<string, any>[]): Promise<void> {
     if (records.length === 0) return;
     const columns = Object.keys(records[0]);
-    for (let i = 0; i < records.length; i += 200) {
-      const chunk = records.slice(i, i + 200);
+    for (let i = 0; i < records.length; i += 50) {
+      const chunk = records.slice(i, i + 50);
       const placeholders = chunk.map((row, ri) =>
         `(${columns.map((_, ci) => `$${ri * columns.length + ci + 1}`).join(",")})`
       ).join(",");

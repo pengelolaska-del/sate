@@ -139,9 +139,11 @@ serve(async (req: Request) => {
         { status: 200, headers: CORS_HEADERS },
       );
     }
-    console.error("dashboard-api error:", e);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    const errStack = e instanceof Error ? e.stack : "";
+    console.error("dashboard-api error:", errMsg, errStack);
     return new Response(
-      JSON.stringify(Api.error(e instanceof Error ? e.message : String(e), 500)),
+      JSON.stringify(Api.error(errMsg + (errStack ? " | " + errStack.split("\n").slice(0, 3).join(" ") : ""), 500)),
       { status: 200, headers: CORS_HEADERS },
     );
   }
