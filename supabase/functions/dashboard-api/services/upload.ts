@@ -133,21 +133,36 @@ export class UploadService {
   }
 
   private async insertChunks(table: string, records: Record<string, any>[]): Promise<void> {
-    for (let i = 0; i < records.length; i += 500) {
-      const chunk = records.slice(i, i + 500);
-      await this.sql`INSERT INTO ${this.sql(table)} ${this.sql(chunk)}`;
+    if (records.length === 0) return;
+    const columns = Object.keys(records[0]);
+    for (let i = 0; i < records.length; i += 200) {
+      const chunk = records.slice(i, i + 200);
+      const placeholders = chunk.map((row, ri) =>
+        `(${columns.map((_, ci) => `$${ri * columns.length + ci + 1}`).join(",")})`
+      ).join(",");
+      const values = chunk.flatMap(row => columns.map(c => row[c] ?? null));
+      await this.sql.unsafe(
+        `INSERT INTO ${table} (${columns.map(c => `"${c}"`).join(",")}) VALUES ${placeholders}`,
+        values
+      );
     }
   }
 
   private async writeLog(uploadId: string, periode: string, bulan: number, tahun: number, jenis: string, p: Record<string, any>, fallbackCount: number): Promise<void> {
     const chunks = Number(p.total_chunks ?? 1);
-    await this.sql`INSERT INTO upload_logs ${this.sql({
+    const row = {
       upload_id: uploadId, periode, bulan, tahun,
       jenis_data: jenis,
       nama_file: p.nama_file ?? (jenis === "RUP" ? "data_rup.csv" : "data_realisasi.csv"),
       jumlah_record: Number(p.total_records ?? fallbackCount),
       uploaded_by: "Admin", uploaded_at: new Date().toISOString(), status: "SUCCESS",
       catatan: "Upload selesai" + (chunks > 1 ? ` (${chunks} chunk)` : ""),
-    })}`;
+    };
+    const cols = Object.keys(row);
+    const vals = Object.values(row);
+    await this.sql.unsafe(
+      `INSERT INTO upload_logs (${cols.map(c => `"${c}"`).join(",")}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(",")})`,
+      vals
+    );
   }
 }

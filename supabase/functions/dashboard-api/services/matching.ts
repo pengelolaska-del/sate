@@ -24,14 +24,21 @@ export class MatchingService {
     // upsert
     const existing = await this.sql`SELECT 1 FROM dashboard_aggregates WHERE periode = ${periode}`;
     if (existing.length > 0) {
-      await this.sql`UPDATE dashboard_aggregates SET ${this.sql({
-        ...agg, bulan, tahun, created_at: new Date().toISOString(),
-      })} WHERE periode = ${periode}`;
+      const updateData = { ...agg, bulan, tahun, created_at: new Date().toISOString() };
+      const setClauses = Object.keys(updateData).map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+      const vals = Object.values(updateData);
+      await this.sql.unsafe(
+        `UPDATE dashboard_aggregates SET ${setClauses} WHERE periode = $${vals.length + 1}`,
+        [...vals, periode]
+      );
     } else {
-      await this.sql`INSERT INTO dashboard_aggregates ${this.sql({
-        aggregate_id: crypto.randomUUID(), periode, ...agg,
-        bulan, tahun, created_at: new Date().toISOString(),
-      })}`;
+      const insertData: Record<string, any> = { aggregate_id: crypto.randomUUID(), periode, ...agg, bulan, tahun, created_at: new Date().toISOString() };
+      const cols = Object.keys(insertData);
+      const vals = Object.values(insertData);
+      await this.sql.unsafe(
+        `INSERT INTO dashboard_aggregates (${cols.map(c => `"${c}"`).join(",")}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(",")})`,
+        vals
+      );
     }
   }
 
@@ -275,9 +282,19 @@ export class MatchingService {
     // Save
     await this.sql.begin(async (tx: any) => {
       await tx`DELETE FROM matching_results WHERE periode = ${periode}`;
-      for (let i = 0; i < rows.length; i += 500) {
-        const chunk = rows.slice(i, i + 500);
-        await tx`INSERT INTO matching_results ${tx(chunk)}`;
+      if (rows.length > 0) {
+        const columns = Object.keys(rows[0]);
+        for (let i = 0; i < rows.length; i += 200) {
+          const chunk = rows.slice(i, i + 200);
+          const placeholders = chunk.map((row, ri) =>
+            `(${columns.map((_, ci) => `$${ri * columns.length + ci + 1}`).join(",")})`
+          ).join(",");
+          const values = chunk.flatMap(row => columns.map(c => (row as any)[c] ?? null));
+          await tx.unsafe(
+            `INSERT INTO matching_results (${columns.map(c => `"${c}"`).join(",")}) VALUES ${placeholders}`,
+            values
+          );
+        }
       }
     });
 

@@ -249,7 +249,9 @@ export class AnalisisService {
     const uniq = [...new Set((p.excluded as any[]).map(m => String(m).trim()).filter(m => m !== ""))];
     await this.sql.begin(async (tx: any) => {
       await tx`DELETE FROM efisiensi_exclude_metode`;
-      if (uniq.length > 0) await tx`INSERT INTO efisiensi_exclude_metode ${tx(uniq.map(m => ({ metode: m })))}`;
+      for (const m of uniq) {
+        await tx.unsafe(`INSERT INTO efisiensi_exclude_metode (metode) VALUES ($1)`, [m]);
+      }
     });
     return Api.ok({ excluded: uniq }, "Setting metode dikecualikan dari efisiensi berhasil disimpan.");
   }

@@ -35,8 +35,8 @@ export class MenuNoticeService {
 
     await this.sql.begin(async (tx: any) => {
       await tx`DELETE FROM menu_notices`;
-      if (uniq.length > 0) {
-        await tx`INSERT INTO menu_notices ${tx(uniq.map(k => ({ menu_key: k })))}`;
+      for (const k of uniq) {
+        await tx.unsafe(`INSERT INTO menu_notices (menu_key) VALUES ($1)`, [k]);
       }
     });
 
