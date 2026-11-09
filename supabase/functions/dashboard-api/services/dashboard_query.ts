@@ -161,7 +161,9 @@ export class DashboardQueryService {
     const totalRow = await this.sql.unsafe(`SELECT count(*) AS n FROM matching_results WHERE ${where}`, params);
     const total = Number(totalRow[0].n);
     const items = await this.sql.unsafe(
-      `SELECT * FROM matching_results WHERE ${where} ORDER BY id OFFSET $${idx} LIMIT $${idx + 1}`,
+      `SELECT id, kode_rup, kode_paket, kode_satker, nama_satker,
+        nama_paket_rup, nama_paket_realisasi, pagu_rup, nilai_kontrak, status_matching
+        FROM matching_results WHERE ${where} ORDER BY id OFFSET $${idx} LIMIT $${idx + 1}`,
       [...params, (page - 1) * perPage, perPage]);
 
     return Api.ok({

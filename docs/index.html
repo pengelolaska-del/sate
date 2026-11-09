@@ -1221,25 +1221,42 @@ thead .col-sep-h{
       Ringkasan gaya laporan bulanan — Cara Pengadaan, Jenis Pengadaan, Metode Pemilihan, paket berjalan, dan tender selesai.
     </p>
 
-    <!-- KPI Total -->
-    <div class="summary-grid-3">
+        <!-- KPI Total â€” sinkron dengan Sandingan RUP -->
+    <div class="summary-grid-3" style="margin-bottom:10px">
       <div class="scard">
         <div class="scard-label">Total Paket RUP</div>
-        <div class="scard-value" id="rk-total-paket">—</div>
-        <div class="scard-sub">Sesuai Rencana Umum Pengadaan</div>
+        <div class="scard-value" id="rk-total-paket">-</div>
+        <div class="scard-sub">Paket di RUP &middot; <span id="rk-unmatched-info" style="color:#B45309;font-weight:600"></span></div>
       </div>
       <div class="scard green">
-        <div class="scard-label">Total Nilai Pagu</div>
-        <div class="scard-value" id="rk-total-nilai">—</div>
-        <div class="scard-sub">Keseluruhan periode terpilih</div>
+        <div class="scard-label">Total Nilai Pagu RUP</div>
+        <div class="scard-value" id="rk-total-nilai">-</div>
+        <div class="scard-sub">Hanya paket RUP &mdash; konsisten Sandingan RUP</div>
       </div>
       <div class="scard yellow">
         <div class="scard-label">Tender Selesai</div>
-        <div class="scard-value" id="rk-tender-selesai">—</div>
+        <div class="scard-value" id="rk-tender-selesai">-</div>
         <div class="scard-sub">Jumlah paket tender rampung</div>
       </div>
     </div>
-
+    <!-- KPI Baris 2: Status & Efisiensi -->
+    <div class="summary-grid-3" style="margin-bottom:16px">
+      <div class="scard" style="border-left:4px solid #16A34A">
+        <div class="scard-label">Sudah Dilaksanakan</div>
+        <div class="scard-value" id="rk-kpi-selesai" style="color:#15803D">-</div>
+        <div class="scard-sub" id="rk-kpi-status-sub">paket &middot; - Sedang Berjalan &middot; - Belum</div>
+      </div>
+      <div class="scard" style="border-left:4px solid #2563EB">
+        <div class="scard-label">Efisiensi (Selesai)</div>
+        <div class="scard-value" id="rk-kpi-efisiensi" style="color:#1D4ED8">-</div>
+        <div class="scard-sub" id="rk-kpi-efisiensi-sub">- % dari pagu paket selesai yg match RUP</div>
+      </div>
+      <div class="scard" style="border-left:4px solid #F59E0B">
+        <div class="scard-label">Nilai Kontrak (Selesai)</div>
+        <div class="scard-value" id="rk-kpi-kontrak">-</div>
+        <div class="scard-sub">Total realisasi kontrak paket selesai</div>
+      </div>
+    </div>
     <!-- a) Rekap Cara Pengadaan -->
     <div class="group-title">Jumlah Total Pengadaan Barang/Jasa sesuai RUP</div>
     <div class="tbl-wrap">
@@ -6362,10 +6379,27 @@ async function loadRekap() {
       return `<td class="text-right mono" style="font-weight:700;color:${color}">${IDRf(m.efisiensi)}</td><td class="text-center mono" style="font-weight:700;color:${color}">${m.persen_efisiensi.toFixed(2)}%</td>`;
     };
 
-    // ── KPI ──
-    document.getElementById('rk-total-paket').textContent = fmt(d.total_paket || 0);
+        // \u2500\u2500 KPI (sinkron Sandingan RUP) \u2500\u2500
+    document.getElementById('rk-total-paket').textContent = fmt(d.total_paket_rup || d.total_paket || 0);
     document.getElementById('rk-total-nilai').textContent = IDR(d.total_nilai || 0);
     document.getElementById('rk-tender-selesai').textContent = fmt((d.tender_selesai||[]).length);
+    // Info orphan (unmatched)
+    const unEl = document.getElementById('rk-unmatched-info');
+    if (unEl && d.total_paket_unmatched > 0) unEl.textContent = '+ '+fmt(d.total_paket_unmatched)+' belum match RUP';
+    else if (unEl) unEl.textContent = '';
+    // KPI baris 2: Status & Efisiensi
+    const rkSelesai = document.getElementById('rk-kpi-selesai');
+    const rkStatusSub = document.getElementById('rk-kpi-status-sub');
+    const rkEfi = document.getElementById('rk-kpi-efisiensi');
+    const rkEfiSub = document.getElementById('rk-kpi-efisiensi-sub');
+    const rkKontrak = document.getElementById('rk-kpi-kontrak');
+    if (rkSelesai) rkSelesai.textContent = fmt(d.jumlah_selesai || 0) + ' paket';
+    if (rkStatusSub) rkStatusSub.textContent = fmt(d.jumlah_berjalan||0)+' Sedang Berjalan \u00b7 '+fmt(d.jumlah_belum||0)+' Belum Berproses';
+    const efiRp = d.efisiensi_selesai || 0;
+    const efiPct = (d.persen_efisiensi_selesai || 0);
+    if (rkEfi) { rkEfi.textContent = IDRf(efiRp); rkEfi.style.color = efiRp < 0 ? '#DC2626' : '#1D4ED8'; }
+    if (rkEfiSub) rkEfiSub.textContent = efiPct.toFixed(2) + '% dari pagu paket selesai yg match RUP';
+    if (rkKontrak) rkKontrak.textContent = IDR(d.kontrak_selesai || 0);
 
     // ── a) Tabel Cara Pengadaan ──
     const cara = d.rekap_cara || [];

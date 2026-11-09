@@ -99,8 +99,35 @@ export class RekapService {
         pemenang: (r.nama_penyedia ?? "") || "—",
       })).sort(desc("efisiensi"));
 
+    // Statistik sesuai Sandingan RUP (hanya paket RUP, bukan orphan)
+    const rupRows   = rows.filter((r: any) => !r.is_unmatched);
+    const orphanRows = rows.filter((r: any) => r.is_unmatched);
+    const selesaiRows   = rows.filter((r: any) => r.status_realisasi === "Selesai");
+    const berjalanRows  = rows.filter((r: any) => r.status_realisasi === "Sedang Berjalan");
+    const belumRows     = rupRows.filter((r: any) => !r.ada_realisasi);
+
+    // Efisiensi (hanya paket Selesai yang pagu-nya diketahui, konsisten Sandingan)
+    const selesaiEfi = selesaiRows.filter((r: any) => !r.is_unmatched || Number(r.pagu) > 0);
+    const paguSel    = sum(selesaiEfi, "pagu");
+    const kontrakSel = sum(selesaiEfi, "nilai_kontrak");
+    const pct = (p: number, k: number) => p > 0 ? Math.round((p - k) / p * 10000) / 100 : 0;
+
     return Api.ok({
-      total_paket: rows.length, total_nilai: sum(rows, "pagu"),
+      // ── Summary sinkron Sandingan RUP ──────────────────────────
+      total_paket_rup: rupRows.length,
+      total_paket_semua: rows.length,
+      total_paket_unmatched: orphanRows.length,
+      total_nilai: sum(rupRows, "pagu"),           // hanya RUP (konsisten Sandingan)
+      total_nilai_semua: sum(rows, "pagu"),        // termasuk orphan
+      jumlah_selesai: selesaiRows.length,
+      jumlah_berjalan: berjalanRows.length,
+      jumlah_belum: belumRows.length,
+      pagu_selesai: paguSel,
+      kontrak_selesai: kontrakSel,
+      efisiensi_selesai: paguSel - kontrakSel,
+      persen_efisiensi_selesai: pct(paguSel, kontrakSel),
+      // ── Lama (backward compat) ─────────────────────────────────
+      total_paket: rows.length,
       total_manual: manual.length, total_nilai_manual: sum(manual, "pagu"),
       rekap_cara: rekapCara, rekap_jenis: rekapJenis, rekap_metode: rekapMetode,
       rekap_transaksi: rekapTransaksi, paket_berjalan: berjalan, tender_selesai: tender,

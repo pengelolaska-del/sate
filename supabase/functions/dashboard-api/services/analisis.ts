@@ -102,11 +102,15 @@ export class AnalisisService {
 
     const dedup: Record<string, any> = {};
     for (const pr of await this.efisiensi.resolvePeriodes(p.periode ?? null, p.tahun ?? null)) {
-      const realRows = await this.sql`SELECT * FROM realisasi_records WHERE periode = ${pr}`;
+      const realRows = await this.sql`SELECT id, kode_paket, kode_satker, nama_satker, nama_paket,
+        nama_penyedia, metode_pengadaan, jenis_pengadaan, sumber_transaksi, status_paket, status_paket_asli, nilai_kontrak, kode_rup
+        FROM realisasi_records WHERE periode = ${pr}`;
       const real: Record<string, any> = {};
       for (const o of realRows) if (o.kode_paket) real[String(o.kode_paket).trim()] = { ...o };
       const seen: Record<string, boolean> = {};
-      const matchRows = await this.sql`SELECT * FROM matching_results WHERE periode = ${pr} AND status_matching = 'MATCHED' AND kode_paket IS NOT NULL ORDER BY id`;
+      const matchRows = await this.sql`SELECT id, kode_rup, kode_paket, kode_satker, nama_satker,
+        nama_paket_rup, nama_paket_realisasi, pagu_rup, nilai_kontrak, status_matching
+        FROM matching_results WHERE periode = ${pr} AND status_matching = 'MATCHED' AND kode_paket IS NOT NULL ORDER BY id`;
       for (const o of matchRows) {
         const r = { ...o };
         const kp = String(r.kode_paket).trim();

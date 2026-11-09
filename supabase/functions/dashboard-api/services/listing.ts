@@ -17,7 +17,9 @@ export class ListingService {
     let all: any[] = [];
     const seen: Record<string, boolean> = {};
     for (const pr of periodes) {
-      const rows = await this.sql`SELECT * FROM rup_records WHERE periode = ${pr} ORDER BY id`;
+      const rows = await this.sql`SELECT id, kode_rup, kode_satker, nama_satker, nama_paket,
+        metode_pengadaan, jenis_pengadaan, cara_pengadaan, sumber_dana, pagu
+        FROM rup_records WHERE periode = ${pr} ORDER BY id`;
       for (const r of rows) {
         if (periodes.length > 1) {
           if (seen[r.kode_rup]) continue;
