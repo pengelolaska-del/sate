@@ -1,5 +1,4 @@
 // Supabase Edge Function: dashboard-api
-// Converted from Laravel PHP backend to Deno/TypeScript
 // Single RPC endpoint: POST {action, ...payload}
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -17,6 +16,7 @@ import { SandinganService } from "./services/sandingan.ts";
 import { AnalisisService } from "./services/analisis.ts";
 import { RekapService } from "./services/rekap.ts";
 import { MenuNoticeService } from "./services/menu_notice.ts";
+import { ManualDataService } from "./services/manual_data.ts";
 
 // ─── Database connection ──────────────────────────────────────
 const DATABASE_URL = Deno.env.get("SUPABASE_DB_URL")
@@ -40,6 +40,7 @@ function buildActions(sql: any): Record<string, ActionEntry> {
   const analisisSvc = new AnalisisService(sql, periodes, sandinganSvc);
   const rekapSvc = new RekapService(sql, periodes, sandinganSvc);
   const menuNotice = new MenuNoticeService(sql);
+  const manualSvc = new ManualDataService(sql, matchingSvc);
 
   return {
     verifyToken:        [p => auth.verify(p),                    false],
@@ -68,16 +69,25 @@ function buildActions(sql: any): Record<string, ActionEntry> {
 
     listSandingan:      [p => sandinganSvc.list(p),              false],
 
-    listEfisiensi:            [p => analisisSvc.listEfisiensi(p),           false],
-    listEfisiensiDetail:      [p => analisisSvc.listEfisiensiDetail(p),     false],
-    dashboardAnalisisCharts:  [p => analisisSvc.charts(p),                  false],
-    dashboardAnalisisDetail:  [p => analisisSvc.analisisDetail(p),          false],
-    listEfisiensiExcludeMetode: [p => analisisSvc.listExcludeMetode(p),     false],
-    saveEfisiensiExcludeMetode: [p => analisisSvc.saveExcludeMetode(p),     true],
-    listManualPagu:           [p => analisisSvc.listManualPagu(p),          false],
+    listEfisiensi:              [p => analisisSvc.listEfisiensi(p),          false],
+    listEfisiensiDetail:        [p => analisisSvc.listEfisiensiDetail(p),    false],
+    dashboardAnalisisCharts:    [p => analisisSvc.charts(p),                 false],
+    dashboardAnalisisDetail:    [p => analisisSvc.analisisDetail(p),         false],
+    listEfisiensiExcludeMetode: [p => analisisSvc.listExcludeMetode(p),      false],
+    saveEfisiensiExcludeMetode: [p => analisisSvc.saveExcludeMetode(p),      true],
+    listManualPagu:             [p => analisisSvc.listManualPagu(p),         false],
 
-    laporanRekap:             [p => rekapSvc.laporanRekap(p),              false],
-    recapJenisPengadaan:      [p => rekapSvc.recapJenisPengadaan(p),       false],
+    // ── Manual data (baru) ──
+    saveManualPagu:       [p => manualSvc.saveManualPagu(p),       true],
+    deleteManualPagu:     [p => manualSvc.deleteManualPagu(p),     true],
+    saveStatusOverride:   [p => manualSvc.saveStatusOverride(p),   true],
+    deleteStatusOverride: [p => manualSvc.deleteStatusOverride(p), true],
+    listManualRUP:        [p => manualSvc.listManualRUP(p),        false],
+    addManualRUP:         [p => manualSvc.addManualRUP(p),         true],
+    deleteManualRUP:      [p => manualSvc.deleteManualRUP(p),      true],
+
+    laporanRekap:         [p => rekapSvc.laporanRekap(p),          false],
+    recapJenisPengadaan:  [p => rekapSvc.recapJenisPengadaan(p),   false],
 
     listMenuNotice:     [p => menuNotice.list(p),                false],
     saveMenuNotice:     [p => menuNotice.save(p),                true],
@@ -94,7 +104,6 @@ const CORS_HEADERS: Record<string, string> = {
 
 // ─── Main handler ─────────────────────────────────────────────
 serve(async (req: Request) => {
-  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }
